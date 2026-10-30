@@ -5,6 +5,7 @@ const state = {
   selectedPlayers: 2,
   selectedTime: 60,
   countdown: null,
+  historyCollapsed: false,
 };
 
 const elements = Object.fromEntries(
@@ -13,7 +14,7 @@ const elements = Object.fromEntries(
     "playerCount", "roundTime", "leaveButton", "copyCodeButton", "connectionBadge",
     "phaseLabel", "roundLabel", "timer", "gameTitle", "gameHint", "players",
     "thinkingControls", "wordInput", "submitButton", "hostControls", "historySection",
-    "history", "toast",
+    "historyToggle", "history", "toast",
   ].map((id) => [id, document.getElementById(id)]),
 );
 
@@ -110,13 +111,13 @@ function currentPlayer() {
 
 function renderPlayers(room) {
   const revealed = room.phase === "reveal" || room.phase === "finished";
-  const cards = room.players.map((player) => {
+  const cards = room.players.map((player, index) => {
     let content = `<div class="player-avatar">${escapeHtml(player.name.slice(0, 1))}</div>`;
     content += `<div class="player-name">${escapeHtml(player.name)}${player.id === room.hostId ? " · 房主" : ""}</div>`;
     if (revealed) content += `<div class="player-word">${escapeHtml(player.word)}</div>`;
     else if (room.phase === "thinking") content += `<div class="player-status">${player.submitted ? "✓ 已锁定" : "正在思考…"}</div>`;
     else content += `<div class="player-status">已加入</div>`;
-    return `<article class="player ${player.id === state.playerId ? "self" : ""}">${content}</article>`;
+    return `<article class="player player-tone-${index % 3} ${player.id === state.playerId ? "self" : ""}">${content}</article>`;
   });
   for (let index = room.players.length; index < room.maxPlayers; index += 1) {
     cards.push(`<article class="player empty-player"><div class="player-avatar">+</div><div class="player-name">等待加入</div></article>`);
@@ -126,10 +127,20 @@ function renderPlayers(room) {
 
 function renderHistory(room) {
   elements.historySection.classList.toggle("hidden", room.history.length === 0);
-  elements.history.innerHTML = [...room.history].reverse().map((item) => `
-    <div class="history-row">
-      <span class="history-round">第 ${item.round} 轮</span>
-      <div class="history-words">${item.words.map((entry) => `<span class="history-word"><b>${escapeHtml(entry.name)}</b>${escapeHtml(entry.word)}</span>`).join("")}</div>
+  elements.history.classList.toggle("hidden", state.historyCollapsed);
+  elements.historyToggle.textContent = `${state.historyCollapsed ? "展开" : "收起"}联想足迹 · ${room.history.length} 轮`;
+  elements.history.innerHTML = room.history.map((item) => `
+    <div class="history-round-block">
+      <div class="history-round">第 ${item.round} 轮</div>
+      <div class="history-cards" data-count="${item.words.length}">
+        ${item.words.map((entry, index) => `
+          ${index > 0 ? `<span class="history-separator">×</span>` : ""}
+          <article class="history-answer player-tone-${index % 3}">
+            <span>${escapeHtml(entry.name)}</span>
+            <strong>${escapeHtml(entry.word)}</strong>
+          </article>
+        `).join("")}
+      </div>
     </div>
   `).join("");
 }
@@ -154,9 +165,10 @@ function renderControls(room) {
   }
 
   if (room.phase === "reveal") {
-    elements.hostControls.innerHTML = isHost
-      ? `<button class="primary-button" data-action="next">继续下一轮</button>`
-      : `<div class="host-note">根据本轮出现的词继续联想，等待房主开始下一轮</div>`;
+    const readyCount = room.players.filter((player) => player.readyNext).length;
+    elements.hostControls.innerHTML = self?.readyNext
+      ? `<button class="primary-button ready-button" disabled>已确认 · 等待其他玩家（${readyCount}/${room.players.length}）</button>`
+      : `<button class="primary-button" data-action="ready_next">继续下一轮（${readyCount}/${room.players.length}）</button>`;
   }
 
   if (room.phase === "finished") {
@@ -246,6 +258,11 @@ elements.joinButton.addEventListener("click", async () => {
 elements.hostControls.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (button) send({ type: button.dataset.action });
+});
+
+elements.historyToggle.addEventListener("click", () => {
+  state.historyCollapsed = !state.historyCollapsed;
+  if (state.room) renderHistory(state.room);
 });
 
 elements.submitButton.addEventListener("click", () => {

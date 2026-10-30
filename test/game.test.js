@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateRound, normalizeWord } from "../game.js";
+import { canStartNextRound, evaluateRound, normalizeWord } from "../game.js";
 
 test("normalizeWord ignores spaces and letter case", () => {
   assert.equal(normalizeWord(" Same Word "), "sameword");
@@ -25,4 +25,9 @@ test("evaluateRound requires every player to submit", () => {
     evaluateRound([{ word: "风" }, { word: "" }]),
     { won: false, word: null },
   );
+});
+
+test("next round starts only after every player is ready", () => {
+  assert.equal(canStartNextRound([{ readyNext: true }, { readyNext: false }]), false);
+  assert.equal(canStartNextRound([{ readyNext: true }, { readyNext: true }]), true);
 });

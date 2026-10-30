@@ -18,6 +18,10 @@ export function evaluateRound(players) {
   };
 }
 
+export function canStartNextRound(players) {
+  return players.length >= 2 && players.every((player) => player.readyNext);
+}
+
 export function publicRoom(room) {
   return {
     code: room.code,
@@ -33,6 +37,7 @@ export function publicRoom(room) {
       id: player.id,
       name: player.name,
       submitted: Boolean(player.word),
+      readyNext: Boolean(player.readyNext),
       word: room.phase === "reveal" || room.phase === "finished" ? player.word : null,
     })),
   };

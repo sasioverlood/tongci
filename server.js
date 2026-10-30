@@ -4,7 +4,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { evaluateRound, publicRoom } from "./game.js";
+import { canStartNextRound, evaluateRound, publicRoom } from "./game.js";
 
 const port = Number(process.env.PORT) || 3000;
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "public");
@@ -59,6 +59,7 @@ function reveal(room) {
   const outcome = evaluateRound(room.players);
   for (const player of room.players) {
     if (!player.word) player.word = "（未提交）";
+    player.readyNext = false;
   }
   room.result = outcome;
   room.phase = outcome.won ? "finished" : "reveal";
@@ -77,7 +78,10 @@ function startRound(room) {
   room.phase = "thinking";
   room.result = null;
   room.deadline = Date.now() + room.roundSeconds * 1000;
-  for (const player of room.players) player.word = "";
+  for (const player of room.players) {
+    player.word = "";
+    player.readyNext = false;
+  }
   room.timer = setTimeout(() => reveal(room), room.roundSeconds * 1000);
   broadcast(room);
   return true;
@@ -100,6 +104,7 @@ function leaveCurrentRoom(socket) {
     room.hostId = room.players[0].id;
   }
   if (room.phase === "thinking" && room.players.every((player) => player.word)) reveal(room);
+  else if (room.phase === "reveal" && canStartNextRound(room.players)) startRound(room);
   else broadcast(room);
 }
 
@@ -108,6 +113,7 @@ function addPlayer(socket, room, name) {
     id: crypto.randomUUID(),
     name: cleanName(name),
     word: "",
+    readyNext: false,
     socket,
   };
   room.players.push(player);
@@ -164,11 +170,18 @@ function handleMessage(socket, raw) {
   const player = room.players.find((item) => item.id === socket.playerId);
   if (!player) return fail(socket, "玩家信息已失效");
 
-  if (message.type === "start" || message.type === "next") {
+  if (message.type === "start") {
     if (room.hostId !== player.id) return fail(socket, "只有房主可以开始回合");
-    if (message.type === "start" && room.phase !== "waiting") return;
-    if (message.type === "next" && room.phase !== "reveal") return;
+    if (room.phase !== "waiting") return;
     if (!startRound(room)) fail(socket, "至少需要两名玩家");
+    return;
+  }
+
+  if (message.type === "ready_next") {
+    if (room.phase !== "reveal" || player.readyNext) return;
+    player.readyNext = true;
+    if (canStartNextRound(room.players)) startRound(room);
+    else broadcast(room);
     return;
   }
 
