@@ -172,7 +172,10 @@ function renderControls(room) {
   }
 
   if (room.phase === "finished") {
-    elements.hostControls.innerHTML = `<div class="host-note">把房间码分享给朋友，再开一局吧。</div>`;
+    const readyCount = room.players.filter((player) => player.readyNext).length;
+    elements.hostControls.innerHTML = self?.readyNext
+      ? `<button class="primary-button ready-button" disabled>已确认再来一局（${readyCount}/${room.players.length}）</button>`
+      : `<button class="primary-button replay-button" data-action="ready_replay">再来一局（${readyCount}/${room.players.length}）</button>`;
   }
 }
 

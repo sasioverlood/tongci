@@ -121,6 +121,8 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(229,107,63
 .host-controls { display: grid; margin-top: 20px; }
 .host-note { color: var(--muted); font-size: 12px; }
 .ready-button { color: var(--accent-dark); background: var(--lavender-soft); box-shadow: none; opacity: 1 !important; }
+.replay-button { background: var(--green); box-shadow: 0 10px 25px rgba(95,146,152,.2); }
+.replay-button:hover { background: #4f8389; }
 .history-section { padding: clamp(20px, 5vw, 34px); border-radius: 18px 18px 30px 30px; }
 .history-toggle { display: block; margin: 0 auto 26px; padding: 6px 12px; border: 0; color: var(--accent-dark); background: transparent; cursor: pointer; font-weight: 900; letter-spacing: .04em; }
 .history { display: grid; gap: 28px; }
