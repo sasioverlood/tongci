@@ -87,6 +87,14 @@ function startRound(room) {
   return true;
 }
 
+function restartGame(room) {
+  if (room.players.length < 2) return false;
+  room.round = 0;
+  room.result = null;
+  room.history = [];
+  return startRound(room);
+}
+
 function leaveCurrentRoom(socket) {
   const room = rooms.get(socket.roomCode);
   if (!room) return;
@@ -105,6 +113,7 @@ function leaveCurrentRoom(socket) {
   }
   if (room.phase === "thinking" && room.players.every((player) => player.word)) reveal(room);
   else if (room.phase === "reveal" && canStartNextRound(room.players)) startRound(room);
+  else if (room.phase === "finished" && canStartNextRound(room.players)) restartGame(room);
   else broadcast(room);
 }
 
@@ -185,6 +194,14 @@ function handleMessage(socket, raw) {
     return;
   }
 
+  if (message.type === "ready_replay") {
+    if (room.phase !== "finished" || player.readyNext) return;
+    player.readyNext = true;
+    if (canStartNextRound(room.players)) restartGame(room);
+    else broadcast(room);
+    return;
+  }
+
   if (message.type === "submit") {
     if (room.phase !== "thinking") return fail(socket, "当前不能提交词语");
     const word = cleanWord(message.word);
@@ -197,6 +214,16 @@ function handleMessage(socket, raw) {
 
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+
+  if (pathname === "/health") {
+    response.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify({ status: "ok", rooms: rooms.size }));
+    return;
+  }
+
   const requested = pathname === "/" ? "/index.html" : pathname;
   const safePath = normalize(requested).replace(/^(\.\.[/\\])+/, "");
   const filePath = join(root, safePath);
@@ -233,10 +260,27 @@ const wss = new WebSocketServer({
   },
 });
 wss.on("connection", (socket) => {
+  socket.isAlive = true;
+  socket.on("pong", () => {
+    socket.isAlive = true;
+  });
   socket.on("message", (raw) => handleMessage(socket, raw));
   socket.on("close", () => leaveCurrentRoom(socket));
   send(socket, { type: "connected" });
 });
+
+const heartbeat = setInterval(() => {
+  for (const socket of wss.clients) {
+    if (!socket.isAlive) {
+      socket.terminate();
+      continue;
+    }
+    socket.isAlive = false;
+    socket.ping();
+  }
+}, 30_000);
+
+wss.on("close", () => clearInterval(heartbeat));
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`同词相见已启动：http://localhost:${port}`);

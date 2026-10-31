@@ -31,3 +31,10 @@ test("next round starts only after every player is ready", () => {
   assert.equal(canStartNextRound([{ readyNext: true }, { readyNext: false }]), false);
   assert.equal(canStartNextRound([{ readyNext: true }, { readyNext: true }]), true);
 });
+
+test("replay also requires every player to confirm", () => {
+  const players = [{ readyNext: true }, { readyNext: false }, { readyNext: true }];
+  assert.equal(canStartNextRound(players), false);
+  players[1].readyNext = true;
+  assert.equal(canStartNextRound(players), true);
+});

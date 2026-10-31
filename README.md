@@ -54,6 +54,24 @@ cloudflared tunnel --url http://localhost:3000
 window.GAME_SERVER_URL = "wss://你的后端域名";
 ```
 
+## 部署到 Render
+
+项目根目录包含 `render.yaml`，可以将 WebSocket 后端部署成 Render Web Service：
+
+1. 确保整个项目已推送到 GitHub，至少包含 `server.js`、`game.js`、`package.json`、`package-lock.json` 和 `render.yaml`。
+2. 登录 Render，选择 **New → Blueprint**，连接此 GitHub 仓库。
+3. Render 会识别 `render.yaml`，创建名为 `same-word-game-server` 的服务。
+4. 部署成功后会得到类似 `https://same-word-game-server.onrender.com` 的地址。
+5. 将该 HTTPS 地址填写到游戏首页的“联机服务器设置”，前端会自动转换为 `wss://`。
+
+如果要限制只有你的 GitHub Pages 可以连接，在 Render 服务的 **Environment** 中添加：
+
+```text
+ALLOWED_ORIGINS=https://你的用户名.github.io
+```
+
+如果使用自定义域名或其他前端地址，需要填写完整来源；多个来源用英文逗号分隔。Render 实例重启或重新部署时，内存中的房间会被清空。
+
 ## 游戏规则
 
 1. 房主创建房间并邀请朋友加入。
